@@ -98,6 +98,7 @@ const REVEAL = { blue: "reveal-rare", purple: "reveal-mythical", pink: "reveal-l
 
 let audio = null;
 const buffers = new Map();
+const decoding = new Map();
 // Download up front; decoding needs an AudioContext, which browsers only allow after a user gesture.
 const downloads = SOUNDS.map((name) =>
   fetch(`sfx/${name}.mp3`).then((r) => r.arrayBuffer()).catch(() => null)
@@ -110,20 +111,26 @@ function ac() {
     if (!Ctx) return null;
     audio = new Ctx();
     SOUNDS.forEach((name, i) =>
-      downloads[i]
+      decoding.set(name, downloads[i]
         .then((data) => data && audio.decodeAudioData(data))
         .then((buf) => buf && buffers.set(name, buf))
-        .catch(() => {}) // a broken sound just stays silent
+        .catch(() => {})) // a broken sound just stays silent
     );
   }
   if (audio.state === "suspended") audio.resume();
   return audio;
 }
 
-function play(name, vol = 0.6) {
+// `wait` is for one-off sounds that should still play if decoding is a moment behind;
+// ticks skip instead, so they never bunch up.
+function play(name, vol = 0.6, wait = false) {
   const ctx = ac();
+  if (!ctx) return;
   const buf = buffers.get(name);
-  if (!ctx || !buf) return;
+  if (!buf) {
+    if (wait) decoding.get(name)?.then(() => buffers.has(name) && play(name, vol));
+    return;
+  }
   const src = ctx.createBufferSource();
   const gain = ctx.createGain();
   src.buffer = buf;
@@ -134,8 +141,8 @@ function play(name, vol = 0.6) {
 
 const sfx = {
   tick: () => play("scroll", 0.45),
-  open: () => play("open"),
-  land: (map) => play(REVEAL[map.rarity] || "reveal-rare", 0.7),
+  open: () => play("open", 0.6, true),
+  land: (map) => play(REVEAL[map.rarity] || "reveal-rare", 0.7, true),
 };
 
 /* ---------- Map pool ---------- */
