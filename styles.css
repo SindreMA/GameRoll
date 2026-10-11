@@ -126,6 +126,104 @@ h1, h2, .reel-name, .roll {
 .reel.has-img.spinning .reel-name { color: rgba(255, 245, 230, .7); }
 .reel.has-img.landed .reel-name { color: #ff7a45; }
 
+/* CS-style case strip */
+.case {
+  margin: -6px -16px 18px;
+  height: 128px;
+  overflow: hidden;
+  background: #120f0c;
+  border-block: 1px solid rgba(255, 255, 255, .06);
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 12%, #000 88%, transparent);
+  mask-image: linear-gradient(90deg, transparent, #000 12%, #000 88%, transparent);
+}
+
+.strip {
+  display: flex;
+  gap: 6px;
+  height: 100%;
+  padding: 10px 0;
+  will-change: transform;
+}
+
+.tile {
+  flex: none;
+  width: 150px;
+  position: relative;
+  border-radius: 6px;
+  overflow: hidden;
+  background:
+    linear-gradient(180deg, transparent 35%, rgba(10, 8, 6, .85)),
+    var(--img, none) center / cover no-repeat,
+    #2a241d;
+  display: flex;
+  align-items: flex-end;
+  padding: 8px 8px 12px;
+}
+
+.tile span {
+  font: 700 15px/1.1 "Barlow Condensed", sans-serif;
+  text-transform: uppercase;
+  color: #fff8ef;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, .7);
+  text-align: left;
+}
+
+.tile::after {
+  content: "";
+  position: absolute;
+  inset: auto 0 0 0;
+  height: 5px;
+  background: var(--rarity);
+  box-shadow: 0 0 14px var(--rarity);
+}
+
+.r-blue { --rarity: #4b69ff; }
+.r-purple { --rarity: #8847ff; }
+.r-pink { --rarity: #d32ce6; }
+.r-red { --rarity: #eb4b4b; }
+.r-gold { --rarity: #e4ae39; }
+
+.tile.won {
+  outline: 2px solid var(--rarity);
+  outline-offset: -2px;
+  animation: won 1.2s ease-out;
+}
+
+@keyframes won {
+  0% { box-shadow: 0 0 0 0 var(--rarity); }
+  30% { box-shadow: 0 0 28px 4px var(--rarity); }
+  100% { box-shadow: 0 0 10px 0 var(--rarity); }
+}
+
+.marker {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 3px;
+  transform: translateX(-50%);
+  background: var(--yellow);
+  box-shadow: 0 0 10px var(--yellow);
+}
+
+.marker::before,
+.marker::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  border: 8px solid transparent;
+}
+.marker::before { top: 0; border-top-color: var(--yellow); }
+.marker::after { bottom: 0; border-bottom-color: var(--yellow); }
+
+.case { position: relative; }
+
+@media (max-width: 420px) {
+  .case { height: 112px; }
+  .tile { width: 124px; }
+}
+
 .reel-label {
   font-size: 12px;
   font-weight: 600;
@@ -135,7 +233,7 @@ h1, h2, .reel-name, .roll {
 }
 
 .reel-window {
-  min-height: 96px;
+  min-height: 76px;
   display: grid;
   place-items: center;
 }

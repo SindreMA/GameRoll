@@ -26,9 +26,13 @@
     <section class="stage" aria-live="polite">
       <div class="reel" id="reel">
         <div class="reel-bg" id="reelBg" aria-hidden="true"></div>
+        <div class="case" id="case" aria-hidden="true">
+          <div class="strip" id="strip"></div>
+          <div class="marker"></div>
+        </div>
         <div class="reel-label">Next drop</div>
         <div class="reel-window">
-          <div class="reel-name" id="reelName">—</div>
+          <div class="reel-name" id="reelName">Ready</div>
         </div>
         <div class="reel-meta" id="reelMeta">Pick your maps and hit roll</div>
       </div>
@@ -38,8 +42,8 @@
         <span id="challengeText"></span>
       </div>
 
-      <button class="roll" id="rollBtn" type="button">Roll</button>
-      <p class="hint">Press <kbd>Space</kbd> to roll</p>
+      <button class="roll" id="rollBtn" type="button">Open case</button>
+      <p class="hint">Press <kbd>Space</kbd> to open</p>
     </section>
 
     <section class="panel">
@@ -62,6 +66,10 @@
       <label class="opt">
         <input type="checkbox" id="optChallenge">
         <span><strong>Add a challenge</strong> — roll a squad rule on top of the map</span>
+      </label>
+      <label class="opt">
+        <input type="checkbox" id="optSound" checked>
+        <span><strong>Sound</strong> — case ticks and the unbox chime</span>
       </label>
     </section>
 

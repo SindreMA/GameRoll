@@ -1,12 +1,13 @@
 // ARC Raiders maps. Add new ones here when Embark ships them.
+// `rarity` is just the CS-style colour bar under each case tile.
 const MAPS = [
-  { id: "dam", name: "Dam Battlegrounds", blurb: "Flooded valley around the old hydro dam" },
-  { id: "spaceport", name: "Spaceport", blurb: "Launch towers and wide open tarmac" },
-  { id: "buried", name: "Buried City", blurb: "Sand-swallowed streets and rooftops" },
-  { id: "bluegate", name: "The Blue Gate", blurb: "Mountain pass, tunnels and checkpoints" },
-  { id: "stella", name: "Stella Montis", blurb: "Research facility up in the snow" },
-  { id: "riven", name: "Riven Tides", blurb: "Coastline, the Exodus port and Panorama Azzurro" },
-  { id: "pendola", name: "Pendola Pass", blurb: "Mountain village and old Exodus transit hub" },
+  { id: "dam", name: "Dam Battlegrounds", blurb: "Flooded valley around the old hydro dam", rarity: "blue" },
+  { id: "spaceport", name: "Spaceport", blurb: "Launch towers and wide open tarmac", rarity: "purple" },
+  { id: "buried", name: "Buried City", blurb: "Sand-swallowed streets and rooftops", rarity: "blue" },
+  { id: "bluegate", name: "The Blue Gate", blurb: "Mountain pass, tunnels and checkpoints", rarity: "pink" },
+  { id: "stella", name: "Stella Montis", blurb: "Research facility up in the snow", rarity: "purple" },
+  { id: "riven", name: "Riven Tides", blurb: "Coastline, the Exodus port and Panorama Azzurro", rarity: "red" },
+  { id: "pendola", name: "Pendola Pass", blurb: "Mountain village and old Exodus transit hub", rarity: "gold" },
 ];
 
 const CHALLENGES = [
@@ -28,14 +29,20 @@ const CHALLENGES = [
 ];
 
 const STORE_KEY = "gameroll:arc";
+const STRIP_LEN = 60;
+const SPIN_MS = 6000;
+
 const reel = document.getElementById("reel");
 const reelBg = document.getElementById("reelBg");
+const caseEl = document.getElementById("case");
+const strip = document.getElementById("strip");
 const reelName = document.getElementById("reelName");
 const reelMeta = document.getElementById("reelMeta");
 const rollBtn = document.getElementById("rollBtn");
 const mapList = document.getElementById("mapList");
 const optNoRepeat = document.getElementById("optNoRepeat");
 const optChallenge = document.getElementById("optChallenge");
+const optSound = document.getElementById("optSound");
 const challengeBox = document.getElementById("challengeBox");
 const challengeText = document.getElementById("challengeText");
 const historyPanel = document.getElementById("historyPanel");
@@ -44,14 +51,8 @@ const historyEl = document.getElementById("history");
 const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 const imgUrl = (map) => `img/${map.id}.webp`;
-// Warm the cache so the reel doesn't flash blank while spinning.
+// Warm the cache so tiles don't pop in blank mid-spin.
 for (const map of MAPS) new Image().src = imgUrl(map);
-
-function showMap(map) {
-  reelName.textContent = map.name;
-  reelBg.style.setProperty("--img", `url("${imgUrl(map)}")`);
-  reel.classList.add("has-img");
-}
 
 function load() {
   try {
@@ -75,6 +76,7 @@ const state = {
   disabled: Array.isArray(saved.disabled) ? saved.disabled : [],
   noRepeat: saved.noRepeat ?? true,
   challenge: saved.challenge ?? false,
+  sound: saved.sound ?? true,
   history: Array.isArray(saved.history) ? saved.history.slice(0, 10) : [],
 };
 let rolling = false;
@@ -88,6 +90,51 @@ function randInt(max) {
 function pick(list) {
   return list[randInt(list.length)];
 }
+
+/* ---------- Sound (synthesised, no audio files) ---------- */
+
+let audio = null;
+
+function ac() {
+  if (!state.sound) return null;
+  if (!audio) {
+    const Ctx = window.AudioContext || window.webkitAudioContext;
+    if (!Ctx) return null;
+    audio = new Ctx();
+  }
+  if (audio.state === "suspended") audio.resume();
+  return audio;
+}
+
+function blip(freq, { at = 0, dur = 0.05, type = "square", vol = 0.06 } = {}) {
+  const ctx = ac();
+  if (!ctx) return;
+  const t = ctx.currentTime + at;
+  const osc = ctx.createOscillator();
+  const gain = ctx.createGain();
+  osc.type = type;
+  osc.frequency.setValueAtTime(freq, t);
+  gain.gain.setValueAtTime(vol, t);
+  gain.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  osc.connect(gain).connect(ctx.destination);
+  osc.start(t);
+  osc.stop(t + dur + 0.02);
+}
+
+const sfx = {
+  tick: () => blip(1400 + Math.random() * 200, { dur: 0.035, vol: 0.05 }),
+  open: () => {
+    blip(220, { dur: 0.12, type: "sawtooth", vol: 0.05 });
+    blip(330, { at: 0.06, dur: 0.12, type: "sawtooth", vol: 0.04 });
+  },
+  land: () => {
+    [523.25, 659.25, 783.99, 1046.5].forEach((f, i) =>
+      blip(f, { at: i * 0.08, dur: 0.5, type: "triangle", vol: 0.12 })
+    );
+  },
+};
+
+/* ---------- Map pool ---------- */
 
 function renderMaps() {
   mapList.innerHTML = "";
@@ -107,6 +154,7 @@ function renderMaps() {
         : [...state.disabled, map.id];
       save();
       updateRollState();
+      if (!rolling) fillStrip(idleStrip());
     });
     mapList.appendChild(li);
   }
@@ -119,10 +167,141 @@ function pool() {
 function updateRollState() {
   const n = pool().length;
   rollBtn.disabled = n === 0 || rolling;
-  if (!rolling && reelName.textContent === "—") {
-    reelMeta.textContent = n === 0 ? "Turn on at least one map" : `${n} map${n === 1 ? "" : "s"} in the pool`;
+  if (!rolling && !reel.classList.contains("landed")) {
+    reelMeta.textContent = n === 0 ? "Turn on at least one map" : `${n} map${n === 1 ? "" : "s"} in the case`;
   }
 }
+
+function highlight(id) {
+  for (const li of mapList.children) li.classList.toggle("hit", li.dataset.id === id);
+}
+
+/* ---------- Case strip ---------- */
+
+function tileEl(map) {
+  const el = document.createElement("div");
+  el.className = `tile r-${map.rarity}`;
+  el.style.setProperty("--img", `url("${imgUrl(map)}")`);
+  const name = document.createElement("span");
+  name.textContent = map.name;
+  el.appendChild(name);
+  return el;
+}
+
+function fillStrip(maps) {
+  strip.style.transition = "none";
+  strip.style.transform = "translateX(0)";
+  strip.replaceChildren(...maps.map(tileEl));
+}
+
+function idleStrip() {
+  const p = pool();
+  return p.length ? Array.from({ length: 12 }, (_, i) => p[i % p.length]) : [];
+}
+
+function tileStep() {
+  const first = strip.firstElementChild;
+  if (!first) return 0;
+  const gap = parseFloat(getComputedStyle(strip).columnGap) || 0;
+  return first.offsetWidth + gap;
+}
+
+function currentX() {
+  return new DOMMatrixReadOnly(getComputedStyle(strip).transform).m41;
+}
+
+function chooseMap() {
+  const candidates = pool();
+  const last = state.history[0]?.map;
+  if (state.noRepeat && candidates.length > 1) {
+    return pick(candidates.filter((m) => m.id !== last));
+  }
+  return pick(candidates);
+}
+
+function roll() {
+  if (rolling) return;
+  const candidates = pool();
+  if (candidates.length === 0) return;
+
+  const winner = chooseMap();
+  const challenge = state.challenge ? pick(CHALLENGES) : null;
+
+  // Winner sits near the end of a long random strip, like a CS case.
+  const winIndex = STRIP_LEN - 6 - randInt(4);
+  const maps = Array.from({ length: STRIP_LEN }, () => pick(candidates));
+  maps[winIndex] = winner;
+  fillStrip(maps);
+
+  rolling = true;
+  rollBtn.disabled = true;
+  challengeBox.hidden = true;
+  highlight(null);
+  reel.classList.remove("landed", "has-img");
+  reel.classList.add("spinning");
+  reelName.textContent = "Opening…";
+  reelMeta.textContent = "";
+  sfx.open();
+
+  const step = tileStep();
+  const center = caseEl.clientWidth / 2;
+  // Land somewhere inside the winning tile, not dead centre, so it feels less scripted.
+  const jitter = (Math.random() - 0.5) * step * 0.7;
+  const target = -(winIndex * step + step / 2 - center + jitter);
+  const duration = reduceMotion ? 600 : SPIN_MS;
+
+  void strip.offsetWidth; // commit the reset before animating
+  strip.style.transition = `transform ${duration}ms cubic-bezier(.12, .7, .14, 1)`;
+  strip.style.transform = `translateX(${target}px)`;
+
+  // Tick every time a tile edge passes the marker.
+  let lastIdx = Math.floor(center / step);
+  let raf = 0;
+  const watch = () => {
+    const idx = Math.floor((center - currentX()) / step);
+    if (idx !== lastIdx) {
+      lastIdx = idx;
+      sfx.tick();
+      const tile = strip.children[idx];
+      if (tile) highlight(maps[idx].id);
+    }
+    raf = requestAnimationFrame(watch);
+  };
+  if (!reduceMotion) raf = requestAnimationFrame(watch);
+
+  const done = () => {
+    cancelAnimationFrame(raf);
+    land(winner, challenge, strip.children[winIndex]);
+  };
+  strip.addEventListener("transitionend", done, { once: true });
+}
+
+function land(map, challenge, tile) {
+  tile?.classList.add("won");
+  reelName.textContent = map.name;
+  reelMeta.textContent = map.blurb;
+  reelBg.style.setProperty("--img", `url("${imgUrl(map)}")`);
+  highlight(map.id);
+  reel.classList.remove("spinning");
+  reel.classList.add("landed", "has-img");
+  sfx.land();
+
+  if (challenge) {
+    challengeText.textContent = challenge;
+    challengeBox.hidden = false;
+  }
+
+  state.history.unshift({ map: map.id, challenge, at: Date.now() });
+  state.history = state.history.slice(0, 10);
+  save();
+  renderHistory();
+
+  rolling = false;
+  updateRollState();
+  rollBtn.focus({ preventScroll: true });
+}
+
+/* ---------- History ---------- */
 
 function renderHistory() {
   historyPanel.hidden = state.history.length === 0;
@@ -151,88 +330,26 @@ function renderHistory() {
   }
 }
 
-function highlight(id) {
-  for (const li of mapList.children) li.classList.toggle("hit", li.dataset.id === id);
-}
-
-function chooseMap() {
-  const candidates = pool();
-  const last = state.history[0]?.map;
-  if (state.noRepeat && candidates.length > 1) {
-    const filtered = candidates.filter((m) => m.id !== last);
-    return pick(filtered);
-  }
-  return pick(candidates);
-}
-
-function roll() {
-  if (rolling) return;
-  const candidates = pool();
-  if (candidates.length === 0) return;
-
-  const winner = chooseMap();
-  const challenge = state.challenge ? pick(CHALLENGES) : null;
-
-  rolling = true;
-  rollBtn.disabled = true;
-  challengeBox.hidden = true;
-  reel.classList.remove("landed");
-  reel.classList.add("spinning");
-  reelMeta.textContent = "Rolling…";
-
-  // Ease out: ticks start fast and slow down before landing on the winner.
-  const ticks = reduceMotion || candidates.length === 1 ? 0 : 18 + randInt(6);
-  let i = 0;
-  let prev = null;
-
-  const step = () => {
-    if (i >= ticks) return land(winner, challenge);
-    let next = pick(candidates);
-    if (candidates.length > 1) while (next === prev) next = pick(candidates);
-    prev = next;
-    showMap(next);
-    highlight(next.id);
-    i++;
-    const t = i / ticks;
-    setTimeout(step, 45 + Math.pow(t, 3) * 320);
-  };
-  step();
-}
-
-function land(map, challenge) {
-  showMap(map);
-  reelMeta.textContent = map.blurb;
-  highlight(map.id);
-  reel.classList.remove("spinning");
-  void reel.offsetWidth; // restart the land animation
-  reel.classList.add("landed");
-
-  if (challenge) {
-    challengeText.textContent = challenge;
-    challengeBox.hidden = false;
-  }
-
-  state.history.unshift({ map: map.id, challenge, at: Date.now() });
-  state.history = state.history.slice(0, 10);
-  save();
-  renderHistory();
-
-  rolling = false;
-  updateRollState();
-  rollBtn.focus({ preventScroll: true });
-}
+/* ---------- Wiring ---------- */
 
 function setAll(on) {
   state.disabled = on ? [] : MAPS.map((m) => m.id);
   save();
   renderMaps();
   updateRollState();
+  if (!rolling) fillStrip(idleStrip());
 }
 
 optNoRepeat.checked = state.noRepeat;
 optChallenge.checked = state.challenge;
+optSound.checked = state.sound;
 optNoRepeat.addEventListener("change", () => { state.noRepeat = optNoRepeat.checked; save(); });
 optChallenge.addEventListener("change", () => { state.challenge = optChallenge.checked; save(); });
+optSound.addEventListener("change", () => {
+  state.sound = optSound.checked;
+  save();
+  if (state.sound) sfx.tick();
+});
 document.getElementById("allBtn").addEventListener("click", () => setAll(true));
 document.getElementById("noneBtn").addEventListener("click", () => setAll(false));
 document.getElementById("clearBtn").addEventListener("click", () => {
@@ -251,4 +368,5 @@ document.addEventListener("keydown", (e) => {
 
 renderMaps();
 renderHistory();
+fillStrip(idleStrip());
 updateRollState();
