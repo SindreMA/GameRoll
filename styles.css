@@ -106,6 +106,26 @@ h1, h2, .reel-name, .roll {
   background: linear-gradient(90deg, var(--red) 0 25%, var(--accent) 25% 50%, var(--yellow) 50% 75%, var(--teal) 75%);
 }
 
+.reel > :not(.reel-bg) { position: relative; }
+
+.reel-bg {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(180deg, rgba(15, 12, 9, .55), rgba(15, 12, 9, .78)),
+    var(--img, none) center / cover no-repeat;
+  opacity: 0;
+  transition: opacity .3s ease;
+}
+
+.reel.has-img .reel-bg { opacity: 1; }
+.reel.has-img { border-color: transparent; }
+.reel.has-img .reel-label,
+.reel.has-img .reel-meta { color: rgba(255, 245, 230, .8); }
+.reel.has-img .reel-name { color: #fff8ef; text-shadow: 0 2px 16px rgba(0, 0, 0, .5); }
+.reel.has-img.spinning .reel-name { color: rgba(255, 245, 230, .7); }
+.reel.has-img.landed .reel-name { color: #ff7a45; }
+
 .reel-label {
   font-size: 12px;
   font-weight: 600;
@@ -227,13 +247,20 @@ kbd {
 .map input { position: absolute; opacity: 0; pointer-events: none; }
 .map span {
   display: flex;
-  align-items: center;
-  gap: 10px;
+  align-items: flex-end;
+  gap: 8px;
+  min-height: 88px;
   padding: 10px 12px;
   border-radius: 10px;
-  border: 1px solid var(--line);
+  border: 2px solid transparent;
+  background:
+    linear-gradient(180deg, rgba(15, 12, 9, .05) 20%, rgba(15, 12, 9, .82)),
+    var(--img, none) center / cover no-repeat,
+    #2a241d;
+  color: #fff8ef;
   font-weight: 600;
-  transition: background .15s, border-color .15s, color .15s;
+  text-shadow: 0 1px 6px rgba(0, 0, 0, .6);
+  transition: filter .2s, opacity .2s, border-color .15s, transform .15s;
   user-select: none;
 }
 
@@ -242,19 +269,19 @@ kbd {
   flex: none;
   width: 16px;
   height: 16px;
+  margin-bottom: 3px;
   border-radius: 4px;
-  border: 2px solid var(--line);
+  border: 2px solid rgba(255, 248, 239, .8);
   transition: inherit;
 }
 
-.map input:checked + span { border-color: var(--accent); }
 .map input:checked + span::before {
   background: var(--accent);
   border-color: var(--accent);
-  box-shadow: inset 0 0 0 2px var(--surface);
+  box-shadow: inset 0 0 0 2px #1f1b16;
 }
-.map input:not(:checked) + span { color: var(--muted); }
-.map.hit span { background: color-mix(in srgb, var(--accent) 14%, transparent); }
+.map input:not(:checked) + span { filter: grayscale(1); opacity: .45; }
+.map.hit span { border-color: var(--accent); transform: scale(1.02); }
 
 .opt { display: flex; gap: 10px; align-items: flex-start; padding: 6px 0; cursor: pointer; }
 .opt input { margin-top: 4px; accent-color: var(--accent); width: 16px; height: 16px; flex: none; }

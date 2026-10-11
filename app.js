@@ -29,6 +29,7 @@ const CHALLENGES = [
 
 const STORE_KEY = "gameroll:arc";
 const reel = document.getElementById("reel");
+const reelBg = document.getElementById("reelBg");
 const reelName = document.getElementById("reelName");
 const reelMeta = document.getElementById("reelMeta");
 const rollBtn = document.getElementById("rollBtn");
@@ -41,6 +42,16 @@ const historyPanel = document.getElementById("historyPanel");
 const historyEl = document.getElementById("history");
 
 const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+const imgUrl = (map) => `img/${map.id}.webp`;
+// Warm the cache so the reel doesn't flash blank while spinning.
+for (const map of MAPS) new Image().src = imgUrl(map);
+
+function showMap(map) {
+  reelName.textContent = map.name;
+  reelBg.style.setProperty("--img", `url("${imgUrl(map)}")`);
+  reel.classList.add("has-img");
+}
 
 function load() {
   try {
@@ -60,7 +71,8 @@ function save() {
 
 const saved = load();
 const state = {
-  enabled: Array.isArray(saved.enabled) ? saved.enabled : MAPS.map((m) => m.id),
+  // Store what's switched off, so maps added later start out enabled.
+  disabled: Array.isArray(saved.disabled) ? saved.disabled : [],
   noRepeat: saved.noRepeat ?? true,
   challenge: saved.challenge ?? false,
   history: Array.isArray(saved.history) ? saved.history.slice(0, 10) : [],
@@ -85,12 +97,14 @@ function renderMaps() {
     li.dataset.id = map.id;
     li.innerHTML = `<label><input type="checkbox"><span></span></label>`;
     const input = li.querySelector("input");
-    input.checked = state.enabled.includes(map.id);
-    li.querySelector("span").textContent = map.name;
+    input.checked = !state.disabled.includes(map.id);
+    const tile = li.querySelector("span");
+    tile.textContent = map.name;
+    tile.style.setProperty("--img", `url("${imgUrl(map)}")`);
     input.addEventListener("change", () => {
-      state.enabled = MAPS.filter((m) =>
-        m.id === map.id ? input.checked : state.enabled.includes(m.id)
-      ).map((m) => m.id);
+      state.disabled = input.checked
+        ? state.disabled.filter((id) => id !== map.id)
+        : [...state.disabled, map.id];
       save();
       updateRollState();
     });
@@ -99,7 +113,7 @@ function renderMaps() {
 }
 
 function pool() {
-  return MAPS.filter((m) => state.enabled.includes(m.id));
+  return MAPS.filter((m) => !state.disabled.includes(m.id));
 }
 
 function updateRollState() {
@@ -176,7 +190,7 @@ function roll() {
     let next = pick(candidates);
     if (candidates.length > 1) while (next === prev) next = pick(candidates);
     prev = next;
-    reelName.textContent = next.name;
+    showMap(next);
     highlight(next.id);
     i++;
     const t = i / ticks;
@@ -186,7 +200,7 @@ function roll() {
 }
 
 function land(map, challenge) {
-  reelName.textContent = map.name;
+  showMap(map);
   reelMeta.textContent = map.blurb;
   highlight(map.id);
   reel.classList.remove("spinning");
@@ -209,7 +223,7 @@ function land(map, challenge) {
 }
 
 function setAll(on) {
-  state.enabled = on ? MAPS.map((m) => m.id) : [];
+  state.disabled = on ? [] : MAPS.map((m) => m.id);
   save();
   renderMaps();
   updateRollState();
