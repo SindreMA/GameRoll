@@ -173,7 +173,7 @@ function renderMaps() {
     li.className = "map";
     li.dataset.id = map.id;
     li.innerHTML = `<label><input type="checkbox"><span></span></label>
-      <div class="odds"><input type="range" min="0" max="100" step="5"><output></output></div>`;
+      <div class="odds"><input type="range" min="0" max="100" step="5"><output aria-live="off"></output></div>`;
     const input = li.querySelector("input");
     input.checked = !state.disabled.includes(map.id);
     const tile = li.querySelector("span");
@@ -431,12 +431,47 @@ rollBtn.addEventListener("click", roll);
 // Any first interaction unlocks audio so sounds are decoded before the case opens.
 document.addEventListener("pointerdown", () => ac(), { once: true });
 document.addEventListener("keydown", (e) => {
-  if (e.code !== "Space" || e.repeat) return;
+  if (e.repeat || e.ctrlKey || e.metaKey || e.altKey) return;
   const tag = document.activeElement?.tagName;
+  if (e.code === "KeyF" && tag !== "INPUT") {
+    e.preventDefault();
+    toggleFullscreen();
+    return;
+  }
+  if (e.code === "Escape" && document.body.classList.contains("fs") && !document.fullscreenElement) {
+    setFsMode(false); // fallback mode has no native Esc handling
+    return;
+  }
+  if (e.code !== "Space") return;
   if (tag === "INPUT" || tag === "BUTTON") return; // let native controls handle space
   e.preventDefault();
   roll();
 });
+
+/* ---------- Fullscreen ---------- */
+
+const fsBtn = document.getElementById("fsBtn");
+const fsLabel = document.getElementById("fsLabel");
+const canFullscreen = !!document.documentElement.requestFullscreen;
+
+function setFsMode(on) {
+  document.body.classList.toggle("fs", on);
+  fsLabel.textContent = on ? "Exit" : "Fullscreen";
+  fsBtn.title = on ? "Exit fullscreen (F)" : "Fullscreen (F)";
+  if (!rolling) fillStrip(idleStrip()); // tile size changes with the layout
+}
+
+function toggleFullscreen() {
+  const on = !document.body.classList.contains("fs");
+  // Without the Fullscreen API (iPhone Safari) we still switch to the big layout.
+  if (!canFullscreen) return setFsMode(on);
+  if (on) document.documentElement.requestFullscreen().catch(() => setFsMode(true));
+  else if (document.fullscreenElement) document.exitFullscreen();
+  else setFsMode(false);
+}
+
+document.addEventListener("fullscreenchange", () => setFsMode(!!document.fullscreenElement));
+fsBtn.addEventListener("click", toggleFullscreen);
 
 renderMaps();
 renderHistory();
