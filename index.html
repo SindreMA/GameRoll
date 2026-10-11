@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>GameRoll</title>
+  <meta name="description" content="Roll which ARC Raiders map to drop into next.">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎲</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;700;800&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <main class="wrap">
+    <header class="top">
+      <div class="brand">
+        <span class="stripes" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
+        <div>
+          <h1>GameRoll</h1>
+          <p class="sub">ARC Raiders · map roulette</p>
+        </div>
+      </div>
+    </header>
+
+    <section class="stage" aria-live="polite">
+      <div class="reel" id="reel">
+        <div class="reel-label">Next drop</div>
+        <div class="reel-window">
+          <div class="reel-name" id="reelName">—</div>
+        </div>
+        <div class="reel-meta" id="reelMeta">Pick your maps and hit roll</div>
+      </div>
+
+      <div class="challenge" id="challengeBox" hidden>
+        <span class="challenge-tag">Challenge</span>
+        <span id="challengeText"></span>
+      </div>
+
+      <button class="roll" id="rollBtn" type="button">Roll</button>
+      <p class="hint">Press <kbd>Space</kbd> to roll</p>
+    </section>
+
+    <section class="panel">
+      <div class="panel-head">
+        <h2>Map pool</h2>
+        <div class="panel-actions">
+          <button type="button" class="link" id="allBtn">All</button>
+          <button type="button" class="link" id="noneBtn">None</button>
+        </div>
+      </div>
+      <ul class="maps" id="mapList"></ul>
+    </section>
+
+    <section class="panel">
+      <h2>Options</h2>
+      <label class="opt">
+        <input type="checkbox" id="optNoRepeat" checked>
+        <span><strong>No repeats</strong> — never roll the same map twice in a row</span>
+      </label>
+      <label class="opt">
+        <input type="checkbox" id="optChallenge">
+        <span><strong>Add a challenge</strong> — roll a squad rule on top of the map</span>
+      </label>
+    </section>
+
+    <section class="panel" id="historyPanel" hidden>
+      <div class="panel-head">
+        <h2>Recent rolls</h2>
+        <button type="button" class="link" id="clearBtn">Clear</button>
+      </div>
+      <ol class="history" id="history"></ol>
+    </section>
+
+    <footer class="foot">Fan-made. Not affiliated with Embark Studios.</footer>
+  </main>
+  <script src="app.js"></script>
+</body>
+</html>
