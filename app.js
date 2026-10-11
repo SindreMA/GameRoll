@@ -30,6 +30,7 @@ const CHALLENGES = [
 
 const STORE_KEY = "gameroll:arc";
 const STRIP_LEN = 60;
+const DEFAULT_WEIGHT = 50;
 const SPIN_MS = 6000;
 
 const reel = document.getElementById("reel");
@@ -79,6 +80,8 @@ const state = {
   challenge: saved.challenge ?? false,
   sound: saved.sound ?? true,
   volume: typeof saved.volume === "number" ? saved.volume : 0.35,
+  // Missing entries fall back to DEFAULT_WEIGHT, so new maps get normal odds.
+  weights: saved.weights && typeof saved.weights === "object" ? saved.weights : {},
   history: Array.isArray(saved.history) ? saved.history.slice(0, 10) : [],
 };
 let rolling = false;
@@ -91,6 +94,20 @@ function randInt(max) {
 
 function pick(list) {
   return list[randInt(list.length)];
+}
+
+function weightOf(map) {
+  return state.weights[map.id] ?? DEFAULT_WEIGHT;
+}
+
+function pickWeighted(maps) {
+  const total = maps.reduce((sum, m) => sum + weightOf(m), 0);
+  let r = randInt(total);
+  for (const m of maps) {
+    r -= weightOf(m);
+    if (r < 0) return m;
+  }
+  return maps[maps.length - 1];
 }
 
 /* ---------- Sound (CS:GO case sounds, played through Web Audio so ticks can overlap) ---------- */
@@ -155,26 +172,53 @@ function renderMaps() {
     const li = document.createElement("li");
     li.className = "map";
     li.dataset.id = map.id;
-    li.innerHTML = `<label><input type="checkbox"><span></span></label>`;
+    li.innerHTML = `<label><input type="checkbox"><span></span></label>
+      <div class="odds"><input type="range" min="0" max="100" step="5"><output></output></div>`;
     const input = li.querySelector("input");
     input.checked = !state.disabled.includes(map.id);
     const tile = li.querySelector("span");
     tile.textContent = map.name;
     tile.style.setProperty("--img", `url("${imgUrl(map)}")`);
+    const slider = li.querySelector("input[type=range]");
+    slider.value = weightOf(map);
+    slider.setAttribute("aria-label", `${map.name} weight`);
+    slider.addEventListener("input", () => {
+      state.weights[map.id] = Number(slider.value);
+      save();
+      updateOdds();
+      updateRollState();
+    });
+    slider.addEventListener("change", () => { if (!rolling) fillStrip(idleStrip()); });
     input.addEventListener("change", () => {
       state.disabled = input.checked
         ? state.disabled.filter((id) => id !== map.id)
         : [...state.disabled, map.id];
       save();
+      updateOdds();
       updateRollState();
       if (!rolling) fillStrip(idleStrip());
     });
     mapList.appendChild(li);
   }
+  updateOdds();
+}
+
+// Show each map's share of the total weight.
+function updateOdds() {
+  const p = pool();
+  const total = p.reduce((sum, m) => sum + weightOf(m), 0);
+  for (const li of mapList.children) {
+    const map = MAPS.find((m) => m.id === li.dataset.id);
+    const on = p.includes(map);
+    const pct = on && total ? (weightOf(map) / total) * 100 : 0;
+    li.querySelector("output").textContent = `${pct < 10 && pct > 0 ? pct.toFixed(1) : Math.round(pct)}%`;
+    li.querySelector("input[type=range]").disabled = state.disabled.includes(map.id);
+    li.classList.toggle("zero", weightOf(map) === 0);
+  }
 }
 
 function pool() {
-  return MAPS.filter((m) => !state.disabled.includes(m.id));
+  return MAPS.filter((m) => !state.disabled.includes(m.id) && weightOf(m) > 0);
 }
 
 function updateRollState() {
@@ -227,9 +271,9 @@ function chooseMap() {
   const candidates = pool();
   const last = state.history[0]?.map;
   if (state.noRepeat && candidates.length > 1) {
-    return pick(candidates.filter((m) => m.id !== last));
+    return pickWeighted(candidates.filter((m) => m.id !== last));
   }
-  return pick(candidates);
+  return pickWeighted(candidates);
 }
 
 function roll() {
@@ -242,7 +286,7 @@ function roll() {
 
   // Winner sits near the end of a long random strip, like a CS case.
   const winIndex = STRIP_LEN - 6 - randInt(4);
-  const maps = Array.from({ length: STRIP_LEN }, () => pick(candidates));
+  const maps = Array.from({ length: STRIP_LEN }, () => pickWeighted(candidates));
   maps[winIndex] = winner;
   fillStrip(maps);
 
@@ -369,6 +413,13 @@ optSound.addEventListener("change", () => {
 optVolume.addEventListener("input", () => { state.volume = optVolume.value / 100; save(); });
 // Preview the new level once the slider is let go, not on every step.
 optVolume.addEventListener("change", () => sfx.tick());
+document.getElementById("evenBtn").addEventListener("click", () => {
+  state.weights = {};
+  save();
+  renderMaps();
+  updateRollState();
+  if (!rolling) fillStrip(idleStrip());
+});
 document.getElementById("allBtn").addEventListener("click", () => setAll(true));
 document.getElementById("noneBtn").addEventListener("click", () => setAll(false));
 document.getElementById("clearBtn").addEventListener("click", () => {

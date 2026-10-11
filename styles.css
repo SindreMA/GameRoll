@@ -342,7 +342,7 @@ kbd {
 }
 
 .map label { display: block; cursor: pointer; }
-.map input { position: absolute; opacity: 0; pointer-events: none; }
+.map label input { position: absolute; opacity: 0; pointer-events: none; }
 .map span {
   display: flex;
   align-items: flex-end;
@@ -408,3 +408,17 @@ kbd {
 .volume { display: flex; align-items: center; gap: 12px; padding: 4px 0 2px 26px; color: var(--muted); font-size: 14px; }
 .volume input { flex: 1; max-width: 240px; accent-color: var(--accent); }
 .volume input:disabled { opacity: .4; }
+
+/* Per-map odds */
+.odds { display: flex; align-items: center; gap: 8px; padding: 6px 2px 0; }
+.odds input { flex: 1; min-width: 0; accent-color: var(--accent); }
+.odds input:disabled { opacity: .35; }
+.odds output {
+  width: 3.4em;
+  text-align: right;
+  font: 600 14px "Barlow", sans-serif;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+}
+.map:has(input[type=checkbox]:not(:checked)) output { color: var(--muted); }
+.map.zero span { filter: grayscale(1); opacity: .45; }
