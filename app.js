@@ -438,7 +438,7 @@ document.addEventListener("keydown", (e) => {
     toggleFullscreen();
     return;
   }
-  if (e.code === "Escape" && document.body.classList.contains("fs") && !document.fullscreenElement) {
+  if (e.code === "Escape" && document.body.classList.contains("native-fs") && !document.fullscreenElement) {
     setFsMode(false); // fallback mode has no native Esc handling
     return;
   }
@@ -455,14 +455,15 @@ const fsLabel = document.getElementById("fsLabel");
 const canFullscreen = !!document.documentElement.requestFullscreen;
 
 function setFsMode(on) {
-  document.body.classList.toggle("fs", on);
+  document.body.classList.toggle("native-fs", on);
+  if (on) scrollTo(0, 0);
   fsLabel.textContent = on ? "Exit" : "Fullscreen";
   fsBtn.title = on ? "Exit fullscreen (F)" : "Fullscreen (F)";
   if (!rolling) fillStrip(idleStrip()); // tile size changes with the layout
 }
 
 function toggleFullscreen() {
-  const on = !document.body.classList.contains("fs");
+  const on = !document.body.classList.contains("native-fs");
   // Without the Fullscreen API (iPhone Safari) we still switch to the big layout.
   if (!canFullscreen) return setFsMode(on);
   if (on) document.documentElement.requestFullscreen().catch(() => setFsMode(true));

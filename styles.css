@@ -440,16 +440,21 @@ kbd {
 .fs-btn:hover { border-color: var(--accent); }
 .fs-btn:focus-visible { outline: 3px solid var(--teal); outline-offset: 2px; }
 .fs-btn svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
-.fs-btn .fs-exit, .fs .fs-btn .fs-enter { display: none; }
-.fs .fs-btn .fs-exit { display: inline; }
+.fs-btn .fs-exit, .native-fs .fs-btn .fs-enter { display: none; }
+.native-fs .fs-btn .fs-exit { display: inline; }
 
 /* Fullscreen mode: edge-to-edge case like a CS case opening */
-.fs { overflow: hidden; }
-.fs .panel, .fs .foot { display: none; }
-.fs .wrap { max-width: none; padding: 0; }
+.native-fs { overflow: hidden; }
+.native-fs .panel, .native-fs .foot, .native-fs .settings-btn { display: none; }
+.fs .wrap { max-width: none; padding: 0 0 48px; }
+.native-fs .wrap { padding: 0; }
+.fs .panel, .fs .foot { width: min(640px, calc(100% - 32px)); margin-left: auto; margin-right: auto; }
+.fs .panel { scroll-margin-top: 16px; }
+.top-actions { display: flex; gap: 8px; }
+.settings-btn { text-decoration: none; }
 
 .fs .top {
-  position: fixed;
+  position: absolute;
   inset: 0 0 auto 0;
   z-index: 5;
   padding: 16px clamp(16px, 3vw, 40px);
@@ -461,7 +466,9 @@ kbd {
 .fs .fs-btn { background: rgba(15, 12, 9, .6); color: #fff8ef; border-color: rgba(255, 255, 255, .15); }
 
 .fs .stage {
-  margin: 0;
+  position: relative;
+  overflow: hidden;
+  margin: 0 0 14px;
   height: 100vh;
   height: 100dvh;
   display: flex;
@@ -482,7 +489,8 @@ kbd {
 }
 .fs .reel::before { display: none; }
 /* Map art behind the whole screen, not just the reel */
-.fs .reel-bg { position: fixed; z-index: 0; filter: blur(3px); transform: scale(1.04); }
+.fs .reel { position: static; }
+.fs .reel-bg { z-index: 0; filter: blur(3px); transform: scale(1.04); }
 .fs .stage > :not(.reel) { position: relative; z-index: 1; }
 .fs .reel, .fs .stage { background: #0d0b09; }
 .fs .reel.has-img { background: transparent; }
@@ -498,7 +506,7 @@ kbd {
 }
 .fs .strip { gap: 1vw; padding: 2.5vh 0; }
 /* About five tiles across, like a CS case */
-.fs .tile { width: min(21vw, 58vh); border-radius: 10px; padding: 2vh 1.4vw 2.6vh; }
+.fs .tile { width: clamp(130px, 21vw, 58vh); border-radius: 10px; padding: 2vh 1.4vw 2.6vh; }
 .fs .tile span { font-size: clamp(18px, 2.4vw, 44px); }
 .fs .tile::after { height: 1vh; min-height: 6px; }
 .fs .marker { width: 4px; }
@@ -515,3 +523,15 @@ kbd {
 .fs .stage > .challenge { margin-top: 0; margin-bottom: 1.5vh; font-size: clamp(16px, 1.5vw, 24px); justify-content: center; }
 .fs .stage > .roll { margin-top: 0; }
 .fs .stage > .hint { margin-bottom: 2.5vh; }
+
+/* Phones: shorter case, wider tiles, icon-only header buttons */
+@media (max-width: 640px) {
+  .fs .sub { display: none; }
+  .fs .brand h1 { font-size: 26px; }
+  .fs .stripes i { height: 28px; }
+  .fs-btn span { display: none; }
+  .fs-btn { padding: 8px; }
+  .fs .reel { padding-top: 64px; }
+  .fs .case { height: 34vh; height: 34svh; }
+  .fs .tile { width: 46vw; }
+}
