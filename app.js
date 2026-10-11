@@ -6,6 +6,7 @@ const MAPS = [
   { id: "bluegate", name: "The Blue Gate", blurb: "Mountain pass, tunnels and checkpoints" },
   { id: "stella", name: "Stella Montis", blurb: "Research facility up in the snow" },
   { id: "riven", name: "Riven Tides", blurb: "Coastline, the Exodus port and Panorama Azzurro" },
+  { id: "pendola", name: "Pendola Pass", blurb: "Mountain village and old Exodus transit hub" },
 ];
 
 const CHALLENGES = [
