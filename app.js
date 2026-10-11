@@ -43,6 +43,7 @@ const mapList = document.getElementById("mapList");
 const optNoRepeat = document.getElementById("optNoRepeat");
 const optChallenge = document.getElementById("optChallenge");
 const optSound = document.getElementById("optSound");
+const optVolume = document.getElementById("optVolume");
 const challengeBox = document.getElementById("challengeBox");
 const challengeText = document.getElementById("challengeText");
 const historyPanel = document.getElementById("historyPanel");
@@ -77,6 +78,7 @@ const state = {
   noRepeat: saved.noRepeat ?? true,
   challenge: saved.challenge ?? false,
   sound: saved.sound ?? true,
+  volume: typeof saved.volume === "number" ? saved.volume : 0.35,
   history: Array.isArray(saved.history) ? saved.history.slice(0, 10) : [],
 };
 let rolling = false;
@@ -134,7 +136,7 @@ function play(name, vol = 0.6, wait = false) {
   const src = ctx.createBufferSource();
   const gain = ctx.createGain();
   src.buffer = buf;
-  gain.gain.value = vol;
+  gain.gain.value = vol * state.volume;
   src.connect(gain).connect(ctx.destination);
   src.start();
 }
@@ -354,13 +356,19 @@ function setAll(on) {
 optNoRepeat.checked = state.noRepeat;
 optChallenge.checked = state.challenge;
 optSound.checked = state.sound;
+optVolume.value = Math.round(state.volume * 100);
+optVolume.disabled = !state.sound;
 optNoRepeat.addEventListener("change", () => { state.noRepeat = optNoRepeat.checked; save(); });
 optChallenge.addEventListener("change", () => { state.challenge = optChallenge.checked; save(); });
 optSound.addEventListener("change", () => {
   state.sound = optSound.checked;
+  optVolume.disabled = !state.sound;
   save();
   if (state.sound) sfx.tick();
 });
+optVolume.addEventListener("input", () => { state.volume = optVolume.value / 100; save(); });
+// Preview the new level once the slider is let go, not on every step.
+optVolume.addEventListener("change", () => sfx.tick());
 document.getElementById("allBtn").addEventListener("click", () => setAll(true));
 document.getElementById("noneBtn").addEventListener("click", () => setAll(false));
 document.getElementById("clearBtn").addEventListener("click", () => {

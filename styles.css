@@ -404,3 +404,7 @@ kbd {
 @media (prefers-reduced-motion: reduce) {
   .reel.landed .reel-name { animation: none; }
 }
+
+.volume { display: flex; align-items: center; gap: 12px; padding: 4px 0 2px 26px; color: var(--muted); font-size: 14px; }
+.volume input { flex: 1; max-width: 240px; accent-color: var(--accent); }
+.volume input:disabled { opacity: .4; }
