@@ -3,6 +3,7 @@ FROM nginx:alpine
 COPY nginx.conf /etc/nginx/nginx.conf
 COPY index.html styles.css app.js /usr/share/nginx/html/
 COPY img /usr/share/nginx/html/img
+COPY sfx /usr/share/nginx/html/sfx
 
 EXPOSE 80
 

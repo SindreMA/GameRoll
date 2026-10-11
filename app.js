@@ -91,9 +91,17 @@ function pick(list) {
   return list[randInt(list.length)];
 }
 
-/* ---------- Sound (synthesised, no audio files) ---------- */
+/* ---------- Sound (CS:GO case sounds, played through Web Audio so ticks can overlap) ---------- */
+
+const SOUNDS = ["open", "scroll", "reveal-rare", "reveal-mythical", "reveal-legendary", "reveal-ancient"];
+const REVEAL = { blue: "reveal-rare", purple: "reveal-mythical", pink: "reveal-legendary", red: "reveal-ancient", gold: "reveal-ancient" };
 
 let audio = null;
+const buffers = new Map();
+// Download up front; decoding needs an AudioContext, which browsers only allow after a user gesture.
+const downloads = SOUNDS.map((name) =>
+  fetch(`sfx/${name}.mp3`).then((r) => r.arrayBuffer()).catch(() => null)
+);
 
 function ac() {
   if (!state.sound) return null;
@@ -101,37 +109,33 @@ function ac() {
     const Ctx = window.AudioContext || window.webkitAudioContext;
     if (!Ctx) return null;
     audio = new Ctx();
+    SOUNDS.forEach((name, i) =>
+      downloads[i]
+        .then((data) => data && audio.decodeAudioData(data))
+        .then((buf) => buf && buffers.set(name, buf))
+        .catch(() => {}) // a broken sound just stays silent
+    );
   }
   if (audio.state === "suspended") audio.resume();
   return audio;
 }
 
-function blip(freq, { at = 0, dur = 0.05, type = "square", vol = 0.06 } = {}) {
+function play(name, vol = 0.6) {
   const ctx = ac();
-  if (!ctx) return;
-  const t = ctx.currentTime + at;
-  const osc = ctx.createOscillator();
+  const buf = buffers.get(name);
+  if (!ctx || !buf) return;
+  const src = ctx.createBufferSource();
   const gain = ctx.createGain();
-  osc.type = type;
-  osc.frequency.setValueAtTime(freq, t);
-  gain.gain.setValueAtTime(vol, t);
-  gain.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-  osc.connect(gain).connect(ctx.destination);
-  osc.start(t);
-  osc.stop(t + dur + 0.02);
+  src.buffer = buf;
+  gain.gain.value = vol;
+  src.connect(gain).connect(ctx.destination);
+  src.start();
 }
 
 const sfx = {
-  tick: () => blip(1400 + Math.random() * 200, { dur: 0.035, vol: 0.05 }),
-  open: () => {
-    blip(220, { dur: 0.12, type: "sawtooth", vol: 0.05 });
-    blip(330, { at: 0.06, dur: 0.12, type: "sawtooth", vol: 0.04 });
-  },
-  land: () => {
-    [523.25, 659.25, 783.99, 1046.5].forEach((f, i) =>
-      blip(f, { at: i * 0.08, dur: 0.5, type: "triangle", vol: 0.12 })
-    );
-  },
+  tick: () => play("scroll", 0.45),
+  open: () => play("open"),
+  land: (map) => play(REVEAL[map.rarity] || "reveal-rare", 0.7),
 };
 
 /* ---------- Map pool ---------- */
@@ -284,7 +288,7 @@ function land(map, challenge, tile) {
   highlight(map.id);
   reel.classList.remove("spinning");
   reel.classList.add("landed", "has-img");
-  sfx.land();
+  sfx.land(map);
 
   if (challenge) {
     challengeText.textContent = challenge;
@@ -358,6 +362,8 @@ document.getElementById("clearBtn").addEventListener("click", () => {
   renderHistory();
 });
 rollBtn.addEventListener("click", roll);
+// Any first interaction unlocks audio so sounds are decoded before the case opens.
+document.addEventListener("pointerdown", () => ac(), { once: true });
 document.addEventListener("keydown", (e) => {
   if (e.code !== "Space" || e.repeat) return;
   const tag = document.activeElement?.tagName;
