@@ -47,6 +47,12 @@
         <div class="reel-meta" id="reelMeta">Pick your maps and hit roll</div>
       </div>
 
+      <div class="kit" id="kitBox" hidden>
+        <span class="kit-tag">Loadout</span>
+        <strong id="kitName"></strong>
+        <span id="kitBudget"></span>
+      </div>
+
       <div class="challenge" id="challengeBox" hidden>
         <span class="challenge-tag">Challenge</span>
         <span id="challengeText"></span>
@@ -66,6 +72,18 @@
         </div>
       </div>
       <ul class="maps" id="mapList"></ul>
+    </section>
+
+    <section class="panel">
+      <div class="panel-head">
+        <h2>Loadout</h2>
+        <button type="button" class="link" id="kitResetBtn">Reset ranges</button>
+      </div>
+      <label class="opt">
+        <input type="checkbox" id="optKit" checked>
+        <span><strong>Roll a loadout</strong> — free kit, or a coin budget for the squad</span>
+      </label>
+      <ul class="kits" id="kitList"></ul>
     </section>
 
     <section class="panel">

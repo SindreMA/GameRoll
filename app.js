@@ -10,6 +10,14 @@ const MAPS = [
   { id: "pendola", name: "Pendola Pass", blurb: "Mountain village and old Exodus transit hub", rarity: "gold" },
 ];
 
+// Loadout tiers. Paid kits roll a coin budget inside their range (editable in settings).
+const KITS = [
+  { id: "free", name: "Free kit", min: 0, max: 0 },
+  { id: "small", name: "Small kit", min: 5000, max: 25000 },
+  { id: "mid", name: "Mid kit", min: 25000, max: 75000 },
+  { id: "large", name: "Large kit", min: 75000, max: 200000 },
+];
+
 const CHALLENGES = [
   "Free loadouts only",
   "Grey and green gear only",
@@ -44,6 +52,11 @@ const mapList = document.getElementById("mapList");
 const optNoRepeat = document.getElementById("optNoRepeat");
 const optChallenge = document.getElementById("optChallenge");
 const optSound = document.getElementById("optSound");
+const optKit = document.getElementById("optKit");
+const kitList = document.getElementById("kitList");
+const kitBox = document.getElementById("kitBox");
+const kitName = document.getElementById("kitName");
+const kitBudget = document.getElementById("kitBudget");
 const optVolume = document.getElementById("optVolume");
 const challengeBox = document.getElementById("challengeBox");
 const challengeText = document.getElementById("challengeText");
@@ -78,6 +91,9 @@ const state = {
   disabled: Array.isArray(saved.disabled) ? saved.disabled : [],
   noRepeat: saved.noRepeat ?? true,
   challenge: saved.challenge ?? false,
+  kitRoll: saved.kitRoll ?? true,
+  // Per-kit overrides: { on, min, max }; missing fields use the KITS defaults.
+  kits: saved.kits && typeof saved.kits === "object" ? saved.kits : {},
   sound: saved.sound ?? true,
   volume: typeof saved.volume === "number" ? saved.volume : 0.35,
   // Missing entries fall back to DEFAULT_WEIGHT, so new maps get normal odds.
@@ -283,6 +299,7 @@ function roll() {
 
   const winner = chooseMap();
   const challenge = state.challenge ? pick(CHALLENGES) : null;
+  const kit = state.kitRoll ? rollKit() : null;
 
   // Winner sits near the end of a long random strip, like a CS case.
   const winIndex = STRIP_LEN - 6 - randInt(4);
@@ -293,6 +310,7 @@ function roll() {
   rolling = true;
   rollBtn.disabled = true;
   challengeBox.hidden = true;
+  kitBox.hidden = true;
   highlight(null);
   reel.classList.remove("landed", "has-img");
   reel.classList.add("spinning");
@@ -328,12 +346,12 @@ function roll() {
 
   const done = () => {
     cancelAnimationFrame(raf);
-    land(winner, challenge, strip.children[winIndex]);
+    land(winner, challenge, kit, strip.children[winIndex]);
   };
   strip.addEventListener("transitionend", done, { once: true });
 }
 
-function land(map, challenge, tile) {
+function land(map, challenge, kit, tile) {
   tile?.classList.add("won");
   reelName.textContent = map.name;
   reelMeta.textContent = map.blurb;
@@ -348,7 +366,14 @@ function land(map, challenge, tile) {
     challengeBox.hidden = false;
   }
 
-  state.history.unshift({ map: map.id, challenge, at: Date.now() });
+  if (kit) {
+    kitName.textContent = kit.name;
+    kitBudget.textContent = kit.budget ? `${fmtCoins(kit.budget)} coins` : "No gear cost";
+    kitBox.className = `kit k-${kit.id}`;
+    kitBox.hidden = false;
+  }
+
+  state.history.unshift({ map: map.id, challenge, kit, at: Date.now() });
   state.history = state.history.slice(0, 10);
   save();
   renderHistory();
@@ -356,6 +381,73 @@ function land(map, challenge, tile) {
   rolling = false;
   updateRollState();
   rollBtn.focus({ preventScroll: true });
+}
+
+/* ---------- Loadout kits ---------- */
+
+function kitCfg(kit) {
+  const o = state.kits[kit.id] || {};
+  return { on: o.on ?? true, min: o.min ?? kit.min, max: o.max ?? kit.max };
+}
+
+function fmtCoins(n) {
+  return n.toLocaleString();
+}
+
+function rollKit() {
+  const enabled = KITS.filter((k) => kitCfg(k).on);
+  if (!enabled.length) return null;
+  const kit = pick(enabled);
+  const { min, max } = kitCfg(kit);
+  const lo = Math.min(min, max);
+  const hi = Math.max(min, max);
+  if (hi <= 0) return { id: kit.id, name: kit.name, budget: 0 };
+  // Random budget in range, rounded to a tidy 1,000.
+  const raw = lo + randInt(hi - lo + 1);
+  const budget = Math.min(hi, Math.max(lo, Math.round(raw / 1000) * 1000));
+  return { id: kit.id, name: kit.name, budget };
+}
+
+function setKit(kit, patch) {
+  state.kits[kit.id] = { ...state.kits[kit.id], ...patch };
+  save();
+}
+
+function renderKits() {
+  kitList.innerHTML = "";
+  for (const kit of KITS) {
+    const cfg = kitCfg(kit);
+    const li = document.createElement("li");
+    li.className = `kit-row k-${kit.id}`;
+    li.innerHTML = `<label class="opt"><input type="checkbox"><span><strong></strong></span></label><div class="kit-range"></div>`;
+    const box = li.querySelector("input");
+    box.checked = cfg.on;
+    box.addEventListener("change", () => setKit(kit, { on: box.checked }));
+    li.querySelector("strong").textContent = kit.name;
+    const range = li.querySelector(".kit-range");
+    if (kit.max === 0) {
+      range.textContent = "Free loadout, no gear cost";
+    } else {
+      for (const key of ["min", "max"]) {
+        const input = document.createElement("input");
+        input.type = "number";
+        input.min = "0";
+        input.step = "1000";
+        input.inputMode = "numeric";
+        input.value = cfg[key];
+        input.setAttribute("aria-label", `${kit.name} ${key === "min" ? "minimum" : "maximum"} coins`);
+        input.addEventListener("change", () => {
+          const v = Math.max(0, Math.round(Number(input.value) || 0));
+          input.value = v;
+          setKit(kit, { [key]: v });
+        });
+        range.appendChild(input);
+        if (key === "min") range.append(" – ");
+      }
+      range.append(" coins");
+    }
+    kitList.appendChild(li);
+  }
 }
 
 /* ---------- History ---------- */
@@ -372,10 +464,13 @@ function renderHistory() {
     name.className = "h-map";
     name.textContent = map.name;
     left.appendChild(name);
-    if (entry.challenge) {
+    const extras = [];
+    if (entry.kit) extras.push(entry.kit.budget ? `${entry.kit.name} · ${fmtCoins(entry.kit.budget)}` : entry.kit.name);
+    if (entry.challenge) extras.push(entry.challenge);
+    if (extras.length) {
       const ch = document.createElement("span");
       ch.className = "h-ch";
-      ch.textContent = entry.challenge;
+      ch.textContent = extras.join(" — ");
       left.appendChild(ch);
     }
     const time = document.createElement("time");
@@ -404,6 +499,18 @@ optVolume.value = Math.round(state.volume * 100);
 optVolume.disabled = !state.sound;
 optNoRepeat.addEventListener("change", () => { state.noRepeat = optNoRepeat.checked; save(); });
 optChallenge.addEventListener("change", () => { state.challenge = optChallenge.checked; save(); });
+optKit.checked = state.kitRoll;
+kitList.classList.toggle("off", !state.kitRoll);
+optKit.addEventListener("change", () => {
+  state.kitRoll = optKit.checked;
+  kitList.classList.toggle("off", !state.kitRoll);
+  save();
+});
+document.getElementById("kitResetBtn").addEventListener("click", () => {
+  state.kits = {};
+  save();
+  renderKits();
+});
 optSound.addEventListener("change", () => {
   state.sound = optSound.checked;
   optVolume.disabled = !state.sound;
@@ -475,6 +582,7 @@ document.addEventListener("fullscreenchange", () => setFsMode(!!document.fullscr
 fsBtn.addEventListener("click", toggleFullscreen);
 
 renderMaps();
+renderKits();
 renderHistory();
 fillStrip(idleStrip());
 updateRollState();
